@@ -1,0 +1,120 @@
+
+# LeetCode Cloud Sync — GitHub Actions Workflow
+#
+# GitHub Actions schedules are best-effort. The five-minute cron interval
+# does not guarantee execution or synchronization within five minutes.
+#
+# MODE A — Same repository:
+# Uses the automatically provided GITHUB_TOKEN.
+#
+# MODE B — Separate submissions repository:
+# Requires SUBMISSIONS_TOKEN, a fine-grained PAT with Contents read/write
+# permission on the destination repository.
+#
+# Required Secrets:
+#   LEETCODE_SESSION
+#   LEETCODE_CSRF_TOKEN
+#   SUBMISSIONS_TOKEN (Mode B only)
+#
+# Required Variables:
+#   LEETCODE_USERNAME
+#   GITHUB_REPO (optional; defaults to this repository)
+#
+# Optional Variables:
+#   GITHUB_BRANCH (default: main)
+#   SOLUTIONS_ROOT (default: solutions)
+#   FETCH_LIMIT (default: 20)
+#   LOG_LEVEL (default: INFO)
+
+name: LeetCode Cloud Sync
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+
+  workflow_dispatch:
+    inputs:
+      fetch_limit:
+        description: "Max submissions to fetch (default: 20)"
+        required: false
+        default: "20"
+        type: string
+
+concurrency:
+  group: leetcode-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Sync LeetCode Submissions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "LeetCode Cloud Sync"
+          git config user.email "leetcode-cloud-sync@users.noreply.github.com"
+
+      # Determine Mode A or Mode B without exposing the token.
+      - name: Determine destination mode
+        id: destination_mode
+        env:
+          SUBMISSIONS_TOKEN: ${{ secrets.SUBMISSIONS_TOKEN }}
+        shell: bash
+        run: |
+          if [[ -n "$SUBMISSIONS_TOKEN" ]]; then
+            echo "mode_a=false" >> "$GITHUB_OUTPUT"
+            echo "Destination mode: separate submissions repository (Mode B)."
+          else
+            echo "mode_a=true" >> "$GITHUB_OUTPUT"
+            echo "Destination mode: same repository (Mode A)."
+          fi
+
+      - name: Run synchronization
+        env:
+          LEETCODE_USERNAME: ${{ vars.LEETCODE_USERNAME }}
+          LEETCODE_SESSION: ${{ secrets.LEETCODE_SESSION }}
+          LEETCODE_CSRF_TOKEN: ${{ secrets.LEETCODE_CSRF_TOKEN }}
+          SUBMISSIONS_TOKEN: ${{ secrets.SUBMISSIONS_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.SUBMISSIONS_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_REPO: ${{ vars.DESTINATION_REPO || github.repository }}
+          GITHUB_BRANCH: ${{ vars.GITHUB_BRANCH || 'main' }}
+          SOLUTIONS_ROOT: ${{ vars.SOLUTIONS_ROOT || 'solutions' }}
+          FETCH_LIMIT: ${{ inputs.fetch_limit || vars.FETCH_LIMIT || '20' }}
+          SYNC_MODE: ${{ vars.SYNC_MODE || 'accepted' }}
+          LOG_LEVEL: ${{ vars.LOG_LEVEL || 'INFO' }}
+        run: python -m src.main
+
+      - name: Commit and push new submissions (Mode A only)
+        if: ${{ steps.destination_mode.outputs.mode_a == 'true' }}
+        shell: bash
+        run: |
+          # Stage only solution files and the deduplication state.
+          git add solutions/ .leetcode_sync_state.json 2>/dev/null || true
+
+          if git diff --cached --quiet; then
+            echo "No new submission files — nothing to commit."
+          else
+            git commit -m "sync: update LeetCode submissions [skip ci]"
+            git push
+          fi
+

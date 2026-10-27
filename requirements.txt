@@ -1,0 +1,13 @@
+# Runtime
+requests==2.32.3
+python-dotenv==1.0.1
+
+# Testing
+pytest==8.3.3
+pytest-mock==3.14.0
+responses==0.25.3
+
+# Code quality
+mypy==1.11.2
+ruff==0.6.9
+types-requests==2.32.0.20240907

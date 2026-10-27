@@ -1,0 +1,67 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+.env/
+
+# Environment files — NEVER commit these
+.env
+.env.local
+.env.*.local
+
+# LeetCode sync runtime state
+# In Mode A (same repo), the state file is committed by the workflow.
+# In Mode B (separate repo), it should NOT be committed to the tool repo.
+.leetcode_sync_state.json
+
+# Personal submission files
+# In Mode B, submissions go to a separate repository.
+# In Mode A, users may choose to keep submissions tracked.
+solutions/
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+*.coveragerc
+
+# Type checking
+.mypy_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Claude Code local settings
+.claude/
+
+# Additional Python tooling caches
+.ruff_cache/
+
+# Local environment files
+.env.*
+!.env.example
+
+# Local test artifacts
+.pytest_cache/

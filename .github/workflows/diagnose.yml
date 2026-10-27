@@ -1,0 +1,43 @@
+# LeetCode Cloud Sync — Diagnostic Workflow
+#
+# Use this to validate your configuration and credentials WITHOUT committing anything.
+# Nothing is written to the repository. Safe to run at any time.
+#
+# Trigger: Actions → LeetCode Cloud Sync: Diagnose → Run workflow
+
+name: "LeetCode Cloud Sync: Diagnose"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read   # Read-only. Nothing is committed.
+
+jobs:
+  diagnose:
+    name: Run Diagnostic Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run diagnostic
+        env:
+          LEETCODE_USERNAME:    ${{ vars.LEETCODE_USERNAME }}
+          LEETCODE_SESSION:     ${{ secrets.LEETCODE_SESSION }}
+          LEETCODE_CSRF_TOKEN:  ${{ secrets.LEETCODE_CSRF_TOKEN }}
+          GITHUB_TOKEN:         ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPO:          ${{ vars.GITHUB_REPO || github.repository }}
+          GITHUB_BRANCH:        ${{ github.ref_name }}
+        run: python -m src.diagnose
