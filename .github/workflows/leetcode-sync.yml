@@ -34,6 +34,11 @@ on:
 
   workflow_dispatch:
     inputs:
+      submission_id:
+        description: "Specific submission ID to sync (optional, for event-driven dispatch)"
+        required: false
+        default: ""
+        type: string
       fetch_limit:
         description: "Max submissions to fetch (default: 20)"
         required: false
@@ -102,6 +107,7 @@ jobs:
           FETCH_LIMIT: ${{ inputs.fetch_limit || vars.FETCH_LIMIT || '20' }}
           SYNC_MODE: ${{ vars.SYNC_MODE || 'accepted' }}
           LOG_LEVEL: ${{ vars.LOG_LEVEL || 'INFO' }}
+          TARGET_SUBMISSION_ID: ${{ inputs.submission_id }}
         run: python -m src.main
 
       - name: Commit and push new submissions (Mode A only)

@@ -293,6 +293,19 @@ class LeetCodeClient:
 
         return records
 
+    def fetch_submission_by_id(self, submission_id: str) -> Optional[SubmissionRecord]:
+        """
+        Fetch and enrich a specific submission by its ID.
+        Used in targeted event-driven workflows.
+        """
+        if not self._session_cookie:
+            raise AuthError(
+                "LEETCODE_SESSION is required to fetch submission detail. "
+                "Set this environment variable to your LeetCode session cookie."
+            )
+        logger.info("Fetching specific submission ID %s for %s…", submission_id, self.username)
+        return self._enrich_submission({"id": submission_id})
+
     def _fetch_submission_list(self) -> list[dict]:
         """
         Return raw submission dicts from the submission list API.

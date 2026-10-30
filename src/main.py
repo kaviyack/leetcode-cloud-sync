@@ -55,7 +55,13 @@ def run(config: Config, store: AnyStore) -> int:
     )
 
     try:
-        submissions = lc.fetch_recent_accepted_submissions()
+        target_sub_id = os.environ.get("TARGET_SUBMISSION_ID", "").strip()
+        if target_sub_id:
+            logger.info("Targeted event mode: fetching specific submission ID %s", target_sub_id)
+            record = lc.fetch_submission_by_id(target_sub_id)
+            submissions = [record] if record else []
+        else:
+            submissions = lc.fetch_recent_accepted_submissions()
     except AuthError as exc:
         logger.error("Authentication failed: %s", exc)
         logger.error(

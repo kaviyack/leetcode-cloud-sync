@@ -1,7 +1,7 @@
 # Python
 __pycache__/
 *.py[cod]
-*.pyo
+*.py
 *.pyd
 .Python
 *.egg-info/

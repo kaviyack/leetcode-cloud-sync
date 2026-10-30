@@ -459,6 +459,50 @@ To stop permanently:
 
 ---
 
+## Event-Driven Architecture with Cloudflare Workers
+
+For instant synchronization without waiting for GitHub Actions cron polling delays, LeetCode Cloud Sync supports an optional **Event-Driven Architecture** powered by Cloudflare Workers and Cloudflare Queues.
+
+### How it works
+1. **Cloudflare Cron Trigger** (every 2 minutes) polls LeetCode's GraphQL API for recent submission stubs.
+2. **Cloudflare KV** stores seen submission IDs (`seen:<submissionId>`) to guarantee exact deduplication and prevent duplicate queueing.
+3. **Cloudflare Queue** (`leetcode-submission-events`) queues new unseen submission events reliably with exponential backoff retries.
+4. **Queue Consumer** immediately triggers GitHub Actions `workflow_dispatch` via GitHub's REST API for each event, passing `submission_id`.
+5. **GitHub Actions** runs Python sync specifically for that `submission_id`, committing the solution instantly.
+
+### Setting up the Cloudflare Worker
+
+1. Install Wrangler CLI:
+   ```bash
+   npm install -g wrangler
+   wrangler login
+   ```
+2. Configure `worker/wrangler.toml` with your KV Namespace ID:
+   ```toml
+   [[kv_namespaces]]
+   binding = "SYNC_STATE"
+   id = "YOUR_KV_NAMESPACE_ID"
+   ```
+3. Set worker secrets:
+   ```bash
+   wrangler secret put LEETCODE_USERNAME
+   wrangler secret put LEETCODE_SESSION
+   wrangler secret put LEETCODE_CSRF_TOKEN
+   wrangler secret put GITHUB_TOKEN
+   ```
+4. Create the queue:
+   ```bash
+   wrangler queues create leetcode-submission-events
+   ```
+5. Deploy the worker:
+   ```bash
+   cd worker
+   npm install
+   wrangler deploy
+   ```
+
+---
+
 ## Running locally with Windows Task Scheduler
 
 If you prefer running the background watcher locally on Windows instead of (or in addition to) GitHub Actions, you can set up a Windows Scheduled Task:
