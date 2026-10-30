@@ -1,9 +1,11 @@
-from unittest.mock import MagicMock, patch
 import os
-from src.main import run
+from unittest.mock import patch
+
 from src.config import Config
 from src.deduplication import DeduplicationStore
+from src.main import run
 from src.organizer import SubmissionRecord
+
 
 def test_targeted_execution(tmp_path):
     # Setup config
