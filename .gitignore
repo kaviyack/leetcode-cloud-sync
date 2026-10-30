@@ -47,6 +47,11 @@ htmlcov/
 
 # Node.js
 node_modules/
+**/node_modules/
+
+# Cloudflare Wrangler
+.wrangler/
+**/.wrangler/
 
 # macOS
 .DS_Store

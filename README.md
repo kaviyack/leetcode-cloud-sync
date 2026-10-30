@@ -284,22 +284,26 @@ To achieve automatic cloud synchronization with scheduled polling approximately 
    wrangler login
    ```
 2. Configure `worker/wrangler.toml` with your KV Namespace ID (`d2fc1d81ecbb48afba1f145a56feaecf`).
-3. Set worker secrets:
+3. Set required worker secrets and variables:
    ```bash
    wrangler secret put LEETCODE_USERNAME
    wrangler secret put LEETCODE_SESSION
    wrangler secret put LEETCODE_CSRF_TOKEN
    wrangler secret put GITHUB_TOKEN
+   wrangler secret put GITHUB_REPO     # e.g., "your-username/leetcode-cloud-sync"
    ```
-4. Create the queue:
+4. Create both the main queue and dead-letter queue (DLQ):
    ```bash
    wrangler queues create leetcode-submission-events
+   wrangler queues create leetcode-submission-events-dlq
    ```
-5. Deploy the worker:
+5. Deploy the worker and verify:
    ```bash
    cd worker
    npm install
    wrangler deploy
+   # Verify health endpoint:
+   curl https://leetcode-cloud-sync-worker.<your-subdomain>.workers.dev/health
    ```
 
 ---
