@@ -97,19 +97,23 @@ class TestConfigFromEnv:
 
     def test_git_author_defaults_and_legacy_overrides(self):
         with _with_env(**_REQUIRED):
-            # Unset → defaults to Kaviyavarshini
+            # Unset → defaults to noreply email
             os.environ.pop("GIT_AUTHOR_NAME", None)
             os.environ.pop("GIT_AUTHOR_EMAIL", None)
             config = Config.from_env()
             assert config.git_author_name == "Kaviyavarshini"
-            assert config.git_author_email == "kaviyack2005@gmail.com"
+            assert config.git_author_email == "153267681+kaviyack@users.noreply.github.com"
 
-            # Legacy bot identity in env → overridden to Kaviyavarshini
+            # Legacy bot or gmail identity in env → overridden to noreply email
             os.environ["GIT_AUTHOR_NAME"] = "LeetCode Cloud Sync"
             os.environ["GIT_AUTHOR_EMAIL"] = "leetcode-cloud-sync@users.noreply.github.com"
             config2 = Config.from_env()
             assert config2.git_author_name == "Kaviyavarshini"
-            assert config2.git_author_email == "kaviyack2005@gmail.com"
+            assert config2.git_author_email == "153267681+kaviyack@users.noreply.github.com"
+
+            os.environ["GIT_AUTHOR_EMAIL"] = "kaviyack2005@gmail.com"
+            config2_b = Config.from_env()
+            assert config2_b.git_author_email == "153267681+kaviyack@users.noreply.github.com"
 
             # Custom personal name/email → preserved
             os.environ["GIT_AUTHOR_NAME"] = "Kaviyavarshini Custom"

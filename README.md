@@ -1,10 +1,11 @@
-# LeetCode Cloud Sync
+# LeetCode Cloud Sync 🚀
 
 > Automatically save your LeetCode submissions to GitHub — from any device, without keeping a computer on.
 
-[![CI](https://github.com/kaviyack/leetcode-cloud-sync/actions/workflows/ci.yml/badge.svg)](https://github.com/kaviyack/leetcode-cloud-sync/actions/workflows/ci.yml)
+[![GitHub Actions CI](https://github.com/kaviyack/leetcode-cloud-sync/actions/workflows/leetcode-sync.yml/badge.svg)](https://github.com/kaviyack/leetcode-cloud-sync/actions/workflows/leetcode-sync.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/)
+[![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-orange.svg)](https://workers.cloudflare.com/)
 
 ---
 
@@ -15,75 +16,76 @@
 ## Table of contents
 
 1. [What it does](#what-it-does)
-2. [Architecture and synchronization flow](#architecture-and-synchronization-flow)
+2. [Architecture and event-driven flow](#architecture-and-event-driven-flow)
 3. [Repository architecture: one repo vs. two repos](#repository-architecture-one-repo-vs-two-repos)
-4. [Supported configuration options](#supported-configuration-options)
-5. [Prerequisites](#prerequisites)
-6. [Fork or clone the project](#fork-or-clone-the-project)
-7. [Configure your LeetCode account](#configure-your-leetcode-account)
-8. [Configure the destination repository](#configure-the-destination-repository)
-9. [Add GitHub Actions secrets and variables](#add-github-actions-secrets-and-variables)
-10. [Enable the workflow and run a manual sync](#enable-the-workflow-and-run-a-manual-sync)
-11. [Inspect workflow logs safely](#inspect-workflow-logs-safely)
-12. [Difficulty folders and timestamped files](#difficulty-folders-and-timestamped-files)
-13. [How duplicate submissions are handled](#how-duplicate-submissions-are-handled)
-14. [Run tests locally](#run-tests-locally)
-15. [Troubleshooting](#troubleshooting)
-16. [Security and privacy](#security-and-privacy)
-17. [Contributing and reporting vulnerabilities](#contributing-and-reporting-vulnerabilities)
-18. [Disable scheduled synchronization](#disable-scheduled-synchronization)
-19. [Running locally with Windows Task Scheduler](#running-locally-with-windows-task-scheduler)
+4. [Technology stack](#technology-stack)
+5. [Supported configuration options](#supported-configuration-options)
+6. [Prerequisites](#prerequisites)
+7. [Fork or clone the project](#fork-or-clone-the-project)
+8. [Configure your LeetCode account](#configure-your-leetcode-account)
+9. [Configure the destination repository](#configure-the-destination-repository)
+10. [Add GitHub Actions secrets and variables](#add-github-actions-secrets-and-variables)
+11. [Enable the workflow and run a manual sync](#enable-the-workflow-and-run-a-manual-sync)
+12. [Inspect workflow logs safely](#inspect-workflow-logs-safely)
+13. [Cloudflare Worker setup (optional event-driven architecture)](#cloudflare-worker-setup-optional-event-driven-architecture)
+14. [Difficulty folders and timestamped files](#difficulty-folders-and-timestamped-files)
+15. [How duplicate submissions are handled](#how-duplicate-submissions-are-handled)
+16. [Run tests locally](#run-tests-locally)
+17. [Troubleshooting](#troubleshooting)
+18. [Security and privacy](#security-and-privacy)
+19. [Contributing and reporting vulnerabilities](#contributing-and-reporting-vulnerabilities)
+20. [Disable scheduled synchronization](#disable-scheduled-synchronization)
+21. [Running locally with Windows Task Scheduler](#running-locally-with-windows-task-scheduler)
+22. [License and related project](#license-and-related-project)
 
 ---
 
 ## What it does
 
-LeetCode Cloud Sync is a Python tool that runs inside GitHub Actions on a schedule. Every time it runs, it:
+LeetCode Cloud Sync is an automated synchronization system that detects accepted LeetCode submissions and commits them directly into a GitHub repository as clean Markdown files.
 
-- Fetches your recent submissions from LeetCode's GraphQL API (accepted only, or all statuses depending on configuration).
-- Organises them by difficulty (Easy / Medium / Hard / Unknown).
-- Commits each new submission as a Markdown file to a GitHub repository of your choice.
+Because it runs in the cloud (via GitHub Actions and Cloudflare Workers), synchronization works regardless of which device you submitted from — phone, laptop, or tablet. No browser extension required. No local machine needed to stay online.
 
-Because it runs on GitHub's servers, synchronisation works regardless of which device you submitted from — phone, laptop, library computer, or anything else. No browser extension. No local machine required to stay online.
-
-| | Browser Extension | LeetCode Cloud Sync |
+| Feature | Browser Extension | LeetCode Cloud Sync |
 |---|---|---|
-| Requires your device to be on | Yes | No |
-| Works from any device | No | Yes |
-| Runs unattended | No | Yes |
-| Stores submissions in GitHub | Depends | Yes |
-| Open source and auditable | Varies | Yes |
+| Requires your device to be on | Yes | **No** |
+| Works from any device (phone/tablet) | No | **Yes** |
+| Runs unattended | No | **Yes** |
+| Stores solutions in GitHub | Varies | **Yes** |
+| Open source and auditable | Varies | **Yes** |
 
 ---
 
-## Architecture and synchronization flow
+## Architecture and event-driven flow
 
-```
-Your LeetCode account (any device)
-         │
-         ▼  (GitHub Actions cron, ~5 min — best-effort, not guaranteed)
-  GitHub Actions Runner
-         │  LeetCode GraphQL API (HTTPS, authenticated)
-         ▼
-  Python sync agent
-     ├─ Fetches submissions (up to FETCH_LIMIT, filtered by SYNC_MODE)
-     ├─ Deduplicates against .leetcode_sync_state.json
-     ├─ Renders each new submission as a Markdown file
-     └─ Commits to the configured destination repository
+```mermaid
+graph TD
+    A[LeetCode API] -->|Polls every 2m| B[Cloudflare Worker]
+    B -->|Check Seen KV| C{New Submission?}
+    C -->|Yes| D[Cloudflare Queue]
+    C -->|No| E[Skip]
+    D -->|Consume Batch| F[GitHub Actions workflow_dispatch]
+    D -->|Failure / Retry| G[Dead-Letter Queue DLQ]
+    F -->|Target SUBMISSION_ID| H[Python Sync Engine]
+    H -->|Render Markdown & Deduplicate| I[Submission Archive GitHub Repo]
 ```
 
-**Source files** (`src/`):
+### Core Components
+- **Cloudflare Worker**: Polling engine running on Cron triggers (`*/2 * * * *`).
+- **Cloudflare KV**: Durable store tracking seen submission IDs (`seen:<submissionId>`).
+- **Cloudflare Queues & DLQ**: Reliable message queue with exponential backoff retries and Dead-Letter Queue fallback.
+- **GitHub Actions**: Automated runner triggered via `workflow_dispatch` with target `SUBMISSION_ID`.
+- **Python Sync Engine**: Fetches submission details, renders structured Markdown, and commits to [kaviyack/LEETCODE-SUBMISSIONS](https://github.com/kaviyack/LEETCODE-SUBMISSIONS).
 
-| File | Purpose |
-|---|---|
-| `config.py` | Loads and validates all environment variables |
-| `leetcode_client.py` | Fetches submissions via LeetCode's GraphQL API |
-| `github_client.py` | Writes files to GitHub via the Contents REST API |
-| `organizer.py` | Determines difficulty directory and file path |
-| `markdown_writer.py` | Renders submissions as Markdown |
-| `deduplication.py` | Tracks which submission IDs have already been synced |
-| `main.py` | Orchestrates the full sync run |
-| `diagnose.py` | Validates credentials and connectivity without committing |
+---
+
+## Technology stack
+
+- **Language**: Python 3.11+, TypeScript
+- **Cloudflare**: Cloudflare Workers, Cloudflare KV, Cloudflare Queues, Cron Triggers
+- **CI/CD**: GitHub Actions (`workflow_dispatch`, scheduled cron)
+- **APIs**: LeetCode GraphQL API, GitHub REST API (Contents & Actions)
+- **Testing**: Pytest (Python), Vitest (TypeScript)
 
 ---
 
@@ -92,25 +94,20 @@ Your LeetCode account (any device)
 You can choose either setup:
 
 ### Option A — Single repository (simplest)
-
 Everything lives in one repository: the application source code and your solutions.
-
-- No extra token required — `GITHUB_TOKEN` is automatically available in Actions.
+- No extra token required (`GITHUB_TOKEN` is automatically available).
 - Solutions are committed alongside the application code.
 
-### Option B — Separate submissions repository (recommended for a clean separation)
-
+### Option B — Separate submissions repository (recommended)
 | Repository | Contents |
 |---|---|
-| `YOUR_USERNAME/leetcode-cloud-sync` | Python source, tests, CI, documentation |
+| `YOUR_USERNAME/leetcode-cloud-sync` | Application source, tests, CI, documentation |
 | `YOUR_USERNAME/leetcode-submissions` | Your generated solution Markdown files only |
 
 Benefits:
 - Clean separation between tool source code and personal solutions.
 - Contributors to the tool do not see your solutions.
 - You can make the submissions repo public or private independently.
-
-**Important:** The built-in `GITHUB_TOKEN` only has write access to the repository it runs in. To write to `YOUR_USERNAME/leetcode-submissions` from a workflow in `YOUR_USERNAME/leetcode-cloud-sync`, you must create a fine-grained personal access token (PAT). See [Configure the destination repository](#configure-the-destination-repository).
 
 > **Public repository warning:** Any solution committed to a public GitHub repository is visible to everyone, including future employers and other LeetCode users. If you want privacy, make your submissions repository private.
 
@@ -123,16 +120,16 @@ Benefits:
 | Variable | Type | Required | Purpose |
 |---|---|---|---|
 | `LEETCODE_USERNAME` | Variable | Yes | Your LeetCode username |
-| `LEETCODE_SESSION` | Secret | Yes | Browser session cookie for API access |
-| `LEETCODE_CSRF_TOKEN` | Secret | Yes | CSRF token paired with session cookie |
-| `GITHUB_TOKEN` | Auto / Secret | Yes | Token with Contents write on the destination repo |
-| `SUBMISSIONS_TOKEN` | Secret | Mode B only | Fine-grained PAT for cross-repo writes (takes precedence over `GITHUB_TOKEN`) |
-| `DESTINATION_REPO` | Variable | Yes | Destination repo in `owner/repo` format (e.g., `YOUR_USERNAME/leetcode-submissions`) |
-| `GITHUB_BRANCH` | Variable | No | Branch to commit to (default: `main`) |
-| `SOLUTIONS_ROOT` | Variable | No | Solutions directory in the destination repo (default: `solutions`) |
-| `SYNC_MODE` | Variable | No | `accepted` (only accepted submissions) or `all` (all statuses including WA, TLE, etc.) (default: `accepted`) |
+| `LEETCODE_SESSION` | Secret | Yes | Browser session cookie (`LEETCODE_SESSION`) |
+| `LEETCODE_CSRF_TOKEN` | Secret | Yes | CSRF token cookie (`csrftoken`) |
+| `GITHUB_TOKEN` | Secret | Yes | GitHub token with Contents write permission |
+| `SUBMISSIONS_TOKEN` | Secret | Mode B only | Fine-grained PAT for cross-repo writes |
+| `DESTINATION_REPO` | Variable | Yes | Destination repo (`owner/repo`) |
+| `GITHUB_BRANCH` | Variable | No | Target branch (default: `main`) |
+| `SOLUTIONS_ROOT` | Variable | No | Solutions directory (default: `solutions`) |
+| `SYNC_MODE` | Variable | No | `accepted` or `all` (default: `accepted`) |
 | `FETCH_LIMIT` | Variable | No | Max submissions per run (default: `20`) |
-| `LOG_LEVEL` | Variable | No | `DEBUG` \| `INFO` \| `WARNING` \| `ERROR` (default: `INFO`) |
+| `LOG_LEVEL` | Variable | No | Log level (`INFO`, `DEBUG`, etc.) |
 
 ### Where each variable belongs
 
@@ -155,20 +152,18 @@ Benefits:
 ## Prerequisites
 
 - A [GitHub account](https://github.com).
-- A [LeetCode account](https://leetcode.com) with at least one accepted submission.
-- Python 3.11+ (for local use or development only — cloud runs do not require local Python).
+- A [LeetCode account](https://leetcode.com).
+- Python 3.11+ (for local development).
+- Node.js & Wrangler CLI (optional, for Cloudflare Worker deployment).
 
 ---
 
 ## Fork or clone the project
 
-### To use the tool in your own GitHub account (recommended for beginners)
+### 1. Fork the repository
+Click **Fork** on [github.com/kaviyack/leetcode-cloud-sync](https://github.com/kaviyack/leetcode-cloud-sync).
 
-1. Click **Fork** on the [GitHub page](https://github.com/kaviyack/leetcode-cloud-sync).
-2. Keep the fork in your own account. The workflow will run in your fork automatically.
-
-### To contribute or develop locally
-
+### 2. Clone locally (for development or testing)
 ```bash
 git clone https://github.com/kaviyack/leetcode-cloud-sync.git
 cd leetcode-cloud-sync
@@ -208,47 +203,31 @@ Session cookies typically last weeks but expire when you log out, change your pa
 ## Configure the destination repository
 
 ### Option A — Same repository
-
-No extra steps needed. The built-in `GITHUB_TOKEN` has write access to the current repository automatically.
-
-Set `DESTINATION_REPO` to your repository name (e.g., `YOUR_USERNAME/leetcode-cloud-sync`) or leave it unset — the workflow defaults to the current repository.
+No extra steps needed. The built-in `GITHUB_TOKEN` has write access to the current repository automatically. Set `DESTINATION_REPO` to your repository name (e.g., `YOUR_USERNAME/leetcode-cloud-sync`) or leave it unset — the workflow defaults to the current repository.
 
 ### Option B — Separate submissions repository
 
 #### Step 1: Create the submissions repository
-
 1. Go to [github.com/new](https://github.com/new).
 2. Create a repository named `leetcode-submissions` (or any name you prefer).
-3. Set visibility: **Public** (visible to everyone) or **Private** (only you).
+3. Set visibility: **Public** or **Private**.
 4. Initialize it with a README so the `main` branch exists.
-5. Do **not** clone or push anything else yet.
 
 #### Step 2: Create a fine-grained personal access token (PAT)
-
-The built-in `GITHUB_TOKEN` cannot write to a different repository. You need a PAT.
-
+The built-in `GITHUB_TOKEN` cannot write to a different repository. You need a PAT:
 1. Go to **GitHub → Settings → Developer settings → Personal access tokens → Fine-grained tokens**.
 2. Click **Generate new token**.
 3. Set:
-   - **Token name**: `leetcode-submissions-write` (or any name)
-   - **Expiration**: choose an expiry that fits your workflow (e.g., 1 year)
-   - **Resource owner**: your account (`YOUR_USERNAME`)
+   - **Token name**: `leetcode-submissions-write`
    - **Repository access**: **Only select repositories** → select `leetcode-submissions`
 4. Under **Permissions → Repository permissions**:
    - **Contents**: **Read and write**
-   - All other permissions: leave as **No access**
-5. Click **Generate token** and copy the value immediately. You cannot see it again.
+5. Click **Generate token** and copy the value immediately.
 
 #### Step 3: Add the PAT as a secret in leetcode-cloud-sync
-
 In `YOUR_USERNAME/leetcode-cloud-sync`:
 **Settings → Secrets and variables → Actions → New repository secret**
-
-| Secret name | Value |
-|---|---|
-| `SUBMISSIONS_TOKEN` | The fine-grained PAT from step 2 |
-
-When `SUBMISSIONS_TOKEN` is set, the workflow uses it instead of `GITHUB_TOKEN` for all API calls to the destination repository.
+- `SUBMISSIONS_TOKEN`: The fine-grained PAT from Step 2.
 
 ---
 
@@ -257,35 +236,23 @@ When `SUBMISSIONS_TOKEN` is set, the workflow uses it instead of `GITHUB_TOKEN` 
 In `YOUR_USERNAME/leetcode-cloud-sync`:
 
 ### Secrets
-
 **Settings → Secrets and variables → Actions → Secrets → New repository secret**
-
-| Secret name | Value |
-|---|---|
-| `LEETCODE_SESSION` | Your `LEETCODE_SESSION` cookie value |
-| `LEETCODE_CSRF_TOKEN` | Your `csrftoken` cookie value |
-| `SUBMISSIONS_TOKEN` | Your fine-grained PAT (Mode B only) |
+- `LEETCODE_SESSION`: Your `LEETCODE_SESSION` cookie value
+- `LEETCODE_CSRF_TOKEN`: Your `csrftoken` cookie value
+- `SUBMISSIONS_TOKEN`: Your fine-grained PAT (Mode B only)
 
 ### Variables
-
 **Settings → Secrets and variables → Actions → Variables → New repository variable**
-
-| Variable name | Value | Notes |
-|---|---|---|
-| `LEETCODE_USERNAME` | Your LeetCode username (e.g., `user123`) | Not a secret |
-| `DESTINATION_REPO` | Destination repo in `owner/repo` format | Mode A: same repo. Mode B: `YOUR_USERNAME/leetcode-submissions` |
-| `SYNC_MODE` | `accepted` or `all` | `accepted`: only accepted submissions. `all`: all statuses (WA, TLE, RE, etc.) |
-| `GITHUB_BRANCH` | `main` | Optional, defaults to `main` |
-| `SOLUTIONS_ROOT` | `solutions` | Optional, defaults to `solutions` |
-| `FETCH_LIMIT` | `20` | Optional, max ~40 before rate limits |
-| `LOG_LEVEL` | `INFO` | Optional |
+- `LEETCODE_USERNAME`: Your LeetCode username
+- `DESTINATION_REPO`: Destination repo in `owner/repo` format
+- `SYNC_MODE`: `accepted` or `all` (default: `accepted`)
+- `GITHUB_BRANCH`: `main` (optional)
+- `SOLUTIONS_ROOT`: `solutions` (optional)
+- `FETCH_LIMIT`: `20` (optional)
+- `LOG_LEVEL`: `INFO` (optional)
 
 ### Workflow permissions (Mode A only)
-
-If writing to the same repository:
-**Settings → Actions → General → Workflow permissions → Read and write permissions** → Save.
-
-For Mode B, the workflow permission can remain at the default read-only setting because all writes use the `SUBMISSIONS_TOKEN` PAT.
+If writing to the same repository: **Settings → Actions → General → Workflow permissions → Read and write permissions** → Save.
 
 ---
 
@@ -295,194 +262,28 @@ For Mode B, the workflow permission can remain at the default read-only setting 
 2. If prompted, click **I understand my workflows, go ahead and enable them**.
 3. Select **LeetCode Cloud Sync** from the left sidebar.
 4. Click **Run workflow** → **Run workflow** to trigger a one-time manual sync.
-5. Watch the run complete. If successful, new files appear in the destination repository under `solutions/`.
-
-The workflow also runs automatically on a 5-minute cron schedule.
-
-> **Schedule caveat:** GitHub Actions cron schedules are best-effort. A 5-minute schedule may be delayed by minutes or hours during high platform load. This tool cannot guarantee that a new submission appears in your repository within exactly 5 minutes.
 
 ---
 
 ## Inspect workflow logs safely
 
 1. Go to the **Actions** tab.
-2. Click the most recent **LeetCode Cloud Sync** run.
-3. Click the **Sync LeetCode Submissions** job.
-4. Expand **Run synchronization** to see detailed log output.
+2. Click the most recent workflow run.
+3. Click the **Sync LeetCode Submissions** job and expand **Run synchronization**.
 
-The application never logs session cookies, CSRF tokens, or `GITHUB_TOKEN` values. If you ever see a credential value in a log line, please report it as a security issue.
-
----
-
-## Difficulty folders and timestamped files
-
-Solutions are stored under the `solutions/` directory (or the value of `SOLUTIONS_ROOT`) in the destination repository:
-
-```
-solutions/
-├── easy/
-│   └── 0001-two-sum/
-│       └── 20261026_2015_python3_1234567890.md
-├── medium/
-│   └── 0006-zigzag-conversion/
-│       └── 20261026_2030_java_9876543210.md
-├── hard/
-└── unknown/      ← used when difficulty cannot be determined
-```
-
-**Filename format:** `<YYYYMMDD>_<HHMM>_<language>_<submission_id>.md`
-
-The submission ID in the filename guarantees uniqueness — two attempts at the same problem on the same day produce two separate files.
-
-Each file contains:
-
-- Problem number, title, and link to leetcode.com
-- Difficulty, topic tags, language
-- Submission ID and UTC timestamp
-- Status, runtime, and memory usage
-- Full submitted source code
-- A complexity section (fill in manually)
-
-**Problem statements are not reproduced** — only a link is provided, to respect LeetCode's content restrictions.
+The application never logs session cookies, CSRF tokens, or tokens.
 
 ---
 
-## How duplicate submissions are handled
+## Cloudflare Worker setup (optional event-driven architecture)
 
-The deduplication store (`.leetcode_sync_state.json`) tracks every submission ID that has been written.
-
-| Scenario | Result |
-|---|---|
-| Same problem submitted again | New file created (different submission ID) |
-| Same problem in a different language | Both files preserved |
-| Identical code resubmitted (new ID) | New file created |
-| Same submission seen on multiple polling runs | Written only once (deduplicated) |
-| Existing submission file | Never overwritten |
-
-The state file is committed to the destination repository so all workflow runs share the same deduplication state.
-
----
-
-## Run tests locally
-
-```bash
-# Install dependencies (if not already done)
-pip install -r requirements.txt
-
-# Run all tests
-pytest tests/ -v
-
-# Run type checking
-mypy src/ --ignore-missing-imports --no-strict-optional
-
-# Run linter
-ruff check src/ tests/
-```
-
-Tests do not require LeetCode credentials or network access. All external API calls are mocked.
-
----
-
-## Troubleshooting
-
-### Authentication failed / 403 Forbidden
-
-**Cause:** The `LEETCODE_SESSION` cookie has expired or been invalidated.
-
-**Fix:**
-1. Log in to leetcode.com in your browser.
-2. Copy the new `LEETCODE_SESSION` and `csrftoken` values.
-3. Update both secrets in **Settings → Secrets and variables → Actions**.
-4. Re-run the workflow.
-
-### 403 Forbidden when writing to the destination repository
-
-**Cause:** `GITHUB_TOKEN` does not have write access to the destination repository.
-
-**Fix (Mode B):** Ensure `SUBMISSIONS_TOKEN` is set as a secret and contains a valid fine-grained PAT with Contents write permission on the destination repository.
-
-### No new files appear after the workflow runs successfully
-
-**Possible causes:**
-- All recent submissions were already synced (check `.leetcode_sync_state.json`).
-- The `FETCH_LIMIT` is lower than the number of new submissions since the last run.
-
-**Fix:** Trigger a manual run and set `fetch_limit` to a higher value (e.g. `100`) to catch up on older submissions.
-
-### submissionList returned null
-
-**Cause:** The session cookie is expired or the CSRF token does not match.
-
-**Fix:** Refresh both `LEETCODE_SESSION` and `LEETCODE_CSRF_TOKEN` and update the secrets.
-
-### Rate limited (HTTP 429)
-
-**Cause:** Too many requests to LeetCode in a short time.
-
-**Fix:** Reduce `FETCH_LIMIT` or increase the cron interval.
-
----
-
-## Security and privacy
-
-- **Public repository = public solutions.** Any solution committed to a public GitHub repository is visible to everyone. Use a private repository if you want privacy.
-- Credentials are stored only as GitHub Actions secrets (encrypted at rest, never printed in logs).
-- The source code never logs session cookies or tokens.
-- HTTPS is used for all API calls.
-- The `SUBMISSIONS_TOKEN` PAT is scoped to the destination repository with Contents write only — no other repositories or permissions.
-- **No official LeetCode API.** This tool uses LeetCode's internal GraphQL endpoint, which LeetCode may change or restrict without notice. If the API changes, the tool may stop working until updated.
-- **Session cookies expire.** You will need to refresh them manually when they expire.
-- **Schedule is best-effort.** GitHub Actions does not guarantee 5-minute delivery.
-- **Fetch limit.** Each run fetches only the most recent N accepted submissions. Very old submissions may require a higher `FETCH_LIMIT` on a manual run.
-
----
-
-## Contributing and reporting vulnerabilities
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and contribution guidelines.
-
-See [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community standards.
-
-To report a security vulnerability, do **not** open a public issue. See [SECURITY.md](SECURITY.md) for responsible disclosure instructions.
-
----
-
-## Disable scheduled synchronization
-
-To pause syncing without deleting anything:
-
-- Go to **Actions → LeetCode Cloud Sync** → click the `...` menu → **Disable workflow**.
-
-To stop permanently:
-
-- Delete `.github/workflows/leetcode-sync.yml` from the repository.
-
----
-
-## Event-Driven Architecture with Cloudflare Workers
-
-For instant synchronization without waiting for GitHub Actions cron polling delays, LeetCode Cloud Sync supports an optional **Event-Driven Architecture** powered by Cloudflare Workers and Cloudflare Queues.
-
-### How it works
-1. **Cloudflare Cron Trigger** (every 2 minutes) polls LeetCode's GraphQL API for recent submission stubs.
-2. **Cloudflare KV** stores seen submission IDs (`seen:<submissionId>`) to guarantee exact deduplication and prevent duplicate queueing.
-3. **Cloudflare Queue** (`leetcode-submission-events`) queues new unseen submission events reliably with exponential backoff retries.
-4. **Queue Consumer** immediately triggers GitHub Actions `workflow_dispatch` via GitHub's REST API for each event, passing `submission_id`.
-5. **GitHub Actions** runs Python sync specifically for that `submission_id`, committing the solution instantly.
-
-### Setting up the Cloudflare Worker
-
+To achieve automatic cloud synchronization with scheduled polling approximately every two minutes:
 1. Install Wrangler CLI:
    ```bash
    npm install -g wrangler
    wrangler login
    ```
-2. Configure `worker/wrangler.toml` with your KV Namespace ID:
-   ```toml
-   [[kv_namespaces]]
-   binding = "SYNC_STATE"
-   id = "YOUR_KV_NAMESPACE_ID"
-   ```
+2. Configure `worker/wrangler.toml` with your KV Namespace ID (`d2fc1d81ecbb48afba1f145a56feaecf`).
 3. Set worker secrets:
    ```bash
    wrangler secret put LEETCODE_USERNAME
@@ -503,25 +304,94 @@ For instant synchronization without waiting for GitHub Actions cron polling dela
 
 ---
 
+## Difficulty folders and timestamped files
+
+Solutions are stored under the `solutions/` directory in the destination repository:
+```
+solutions/
+├── easy/
+│   └── 0001-two-sum/
+│       └── 20261031_1200_python3_12345678.md
+├── medium/
+├── hard/
+└── unknown/
+```
+
+**Filename format:** `<YYYYMMDD>_<HHMM>_<language>_<submission_id>.md`
+
+Each file contains problem number, title, difficulty, topic tags, language, submission ID, UTC timestamp, status, runtime, memory usage, and full source code.
+
+---
+
+## How duplicate submissions are handled
+
+The deduplication state (`.leetcode_sync_state.json`) tracks synced submission IDs. Multiple attempts, different languages, or resubmissions are preserved without overwriting existing files.
+
+---
+
+## Run tests locally
+
+```bash
+# Python tests (138 tests)
+python -m pytest tests/ -v
+
+# TypeScript worker tests (5 tests)
+cd worker && npm install && npx vitest run
+```
+
+---
+
+## Troubleshooting
+
+- **Authentication failed / 403**: `LEETCODE_SESSION` has expired. Re-login and update the secret.
+- **403 when writing to repo**: Ensure `SUBMISSIONS_TOKEN` has Contents `Read and write` permission on the destination repository.
+- **No new files appear**: Check if submissions were already synced or increase `FETCH_LIMIT`.
+- **submissionList returned null**: Refresh both `LEETCODE_SESSION` and `LEETCODE_CSRF_TOKEN`.
+- **Rate limited (HTTP 429)**: Reduce `FETCH_LIMIT`.
+
+---
+
+## Security and privacy
+
+- **Public repository = public solutions.** Use a private submissions repository if you want privacy.
+- Secrets are encrypted at rest in GitHub Actions and never printed in logs.
+- Session cookies expire periodically and require manual refresh.
+
+---
+
+## Contributing and reporting vulnerabilities
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines. For security vulnerabilities, see [SECURITY.md](SECURITY.md).
+
+---
+
+## Disable scheduled synchronization
+
+To pause syncing: go to **Actions → LeetCode Cloud Sync** → `...` → **Disable workflow**.
+To stop permanently: delete `.github/workflows/leetcode-sync.yml`.
+
+---
+
 ## Running locally with Windows Task Scheduler
 
-If you prefer running the background watcher locally on Windows instead of (or in addition to) GitHub Actions, you can set up a Windows Scheduled Task:
-
-1. Configure your credentials securely in a local `.env` file (see [Fork or clone the project](#fork-or-clone-the-project)).
+If you prefer running the background watcher locally on Windows:
+1. Configure your credentials securely in a local `.env` file.
 2. Register the scheduled task at logon by running:
    ```powershell
    .\scripts\setup-task.ps1
    ```
-3. View logs at `logs/watcher.log` (rotation enabled).
-4. To uninstall the task:
+3. View logs at `logs/watcher.log`.
+4. To uninstall:
    ```powershell
    .\scripts\uninstall-task.ps1
    ```
-
-See the full guide in [docs/windows-task-scheduler.md](docs/windows-task-scheduler.md) for detailed configuration, checking task status, log rotation, and troubleshooting.
+See [docs/windows-task-scheduler.md](docs/windows-task-scheduler.md) for details.
 
 ---
 
-## License
+## License and related project
 
-[MIT](LICENSE)
+Distributed under the MIT License. See [LICENSE](LICENSE) for details.
+
+- **Main Sync Engine**: [kaviyack/leetcode-cloud-sync](https://github.com/kaviyack/leetcode-cloud-sync)
+- **Submission Archive**: [kaviyack/LEETCODE-SUBMISSIONS](https://github.com/kaviyack/LEETCODE-SUBMISSIONS)

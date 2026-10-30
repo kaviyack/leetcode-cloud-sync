@@ -45,6 +45,9 @@ htmlcov/
 *.swp
 *.swo
 
+# Node.js
+node_modules/
+
 # macOS
 .DS_Store
 
