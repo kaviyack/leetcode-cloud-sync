@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 AnyStore = Union[DeduplicationStore, RemoteDeduplicationStore]
 
 
-def watch(interval: int = 60) -> None:
+def watch(interval: int = 60, log_file: pathlib.Path | None = None) -> None:
     """Run continuous polling loop to sync new LeetCode submissions."""
     load_dotenv()
 
@@ -38,9 +38,12 @@ def watch(interval: int = 60) -> None:
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(1)
 
-    log_dir = pathlib.Path("logs")
-    log_dir.mkdir(exist_ok=True, parents=True)
-    log_file = log_dir / "watcher.log"
+    if log_file is None:
+        log_dir = pathlib.Path("logs")
+        log_dir.mkdir(exist_ok=True, parents=True)
+        log_file = log_dir / "watcher.log"
+    else:
+        log_file.parent.mkdir(exist_ok=True, parents=True)
 
     root_logger = logging.getLogger()
     root_logger.setLevel(getattr(logging, config.log_level, logging.INFO))
