@@ -32,6 +32,7 @@
 16. [Security and privacy](#security-and-privacy)
 17. [Contributing and reporting vulnerabilities](#contributing-and-reporting-vulnerabilities)
 18. [Disable scheduled synchronization](#disable-scheduled-synchronization)
+19. [Running locally with Windows Task Scheduler](#running-locally-with-windows-task-scheduler)
 
 ---
 
@@ -455,6 +456,25 @@ To pause syncing without deleting anything:
 To stop permanently:
 
 - Delete `.github/workflows/leetcode-sync.yml` from the repository.
+
+---
+
+## Running locally with Windows Task Scheduler
+
+If you prefer running the background watcher locally on Windows instead of (or in addition to) GitHub Actions, you can set up a Windows Scheduled Task:
+
+1. Configure your credentials securely in a local `.env` file (see [Fork or clone the project](#fork-or-clone-the-project)).
+2. Register the scheduled task at logon by running:
+   ```powershell
+   .\scripts\setup-task.ps1
+   ```
+3. View logs at `logs/watcher.log` (rotation enabled).
+4. To uninstall the task:
+   ```powershell
+   .\scripts\uninstall-task.ps1
+   ```
+
+See the full guide in [docs/windows-task-scheduler.md](docs/windows-task-scheduler.md) for detailed configuration, checking task status, log rotation, and troubleshooting.
 
 ---
 
