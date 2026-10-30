@@ -135,13 +135,13 @@ class TestGitHubClientAuthorMetadata:
             content="print('hello')",
             commit_message="sync: add easy #1 two sum",
             author_name="Kaviyavarshini",
-            author_email="kaviyack2005@gmail.com",
+            author_email="legacy@example.invalid",
         )
         req_body = json.loads(resp_lib.calls[0].request.body)
         assert req_body["author"]["name"] == "Kaviyavarshini"
-        assert req_body["author"]["email"] == "kaviyack2005@gmail.com"
+        assert req_body["author"]["email"] == "legacy@example.invalid"
         assert req_body["committer"]["name"] == "Kaviyavarshini"
-        assert req_body["committer"]["email"] == "kaviyack2005@gmail.com"
+        assert req_body["committer"]["email"] == "legacy@example.invalid"
 
     @resp_lib.activate
     def test_update_file_sends_intended_author_and_committer(self):
@@ -158,10 +158,10 @@ class TestGitHubClientAuthorMetadata:
             sha="sha123",
             commit_message="sync: update state",
             author_name="Kaviyavarshini",
-            author_email="kaviyack2005@gmail.com",
+            author_email="legacy@example.invalid",
         )
         req_body = json.loads(resp_lib.calls[0].request.body)
         assert req_body["author"]["name"] == "Kaviyavarshini"
-        assert req_body["author"]["email"] == "kaviyack2005@gmail.com"
+        assert req_body["author"]["email"] == "legacy@example.invalid"
         assert req_body["committer"]["name"] == "Kaviyavarshini"
-        assert req_body["committer"]["email"] == "kaviyack2005@gmail.com"
+        assert req_body["committer"]["email"] == "legacy@example.invalid"

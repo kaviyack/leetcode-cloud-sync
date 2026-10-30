@@ -91,7 +91,7 @@ class Config:
             git_author_name = raw_author_name
 
         raw_author_email = os.environ.get("GIT_AUTHOR_EMAIL", "").strip()
-        if not raw_author_email or raw_author_email == "leetcode-cloud-sync@users.noreply.github.com" or raw_author_email == "kaviyack2005@gmail.com":
+        if not raw_author_email or raw_author_email == "leetcode-cloud-sync@users.noreply.github.com" or raw_author_email == "legacy@example.invalid":
             git_author_email = "153267681+kaviyack@users.noreply.github.com"
         else:
             git_author_email = raw_author_email

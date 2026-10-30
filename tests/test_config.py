@@ -104,14 +104,14 @@ class TestConfigFromEnv:
             assert config.git_author_name == "Kaviyavarshini"
             assert config.git_author_email == "153267681+kaviyack@users.noreply.github.com"
 
-            # Legacy bot or gmail identity in env → overridden to noreply email
+            # Legacy bot or legacy identity in env → overridden to noreply email
             os.environ["GIT_AUTHOR_NAME"] = "LeetCode Cloud Sync"
             os.environ["GIT_AUTHOR_EMAIL"] = "leetcode-cloud-sync@users.noreply.github.com"
             config2 = Config.from_env()
             assert config2.git_author_name == "Kaviyavarshini"
             assert config2.git_author_email == "153267681+kaviyack@users.noreply.github.com"
 
-            os.environ["GIT_AUTHOR_EMAIL"] = "kaviyack2005@gmail.com"
+            os.environ["GIT_AUTHOR_EMAIL"] = "legacy@example.invalid"
             config2_b = Config.from_env()
             assert config2_b.git_author_email == "153267681+kaviyack@users.noreply.github.com"
 
