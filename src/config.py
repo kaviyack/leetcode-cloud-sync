@@ -32,7 +32,7 @@ class Config:
     sync_mode: str = "accepted"
     # Committer identity for automated commits.
     git_author_name: str = "Kaviyavarshini"
-    git_author_email: str = "kaviyack2005@gmail.com"
+    git_author_email: str = "153267681+kaviyack@users.noreply.github.com"
     log_level: str = "INFO"
     # Additional field for any optional env overrides.
     extra: dict = field(default_factory=dict)
