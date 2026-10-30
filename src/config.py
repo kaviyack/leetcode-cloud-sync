@@ -84,6 +84,18 @@ class Config:
             )
             sync_mode = "accepted"
 
+        raw_author_name = os.environ.get("GIT_AUTHOR_NAME", "").strip()
+        if not raw_author_name or raw_author_name == "LeetCode Cloud Sync":
+            git_author_name = "Kaviyavarshini"
+        else:
+            git_author_name = raw_author_name
+
+        raw_author_email = os.environ.get("GIT_AUTHOR_EMAIL", "").strip()
+        if not raw_author_email or raw_author_email == "leetcode-cloud-sync@users.noreply.github.com":
+            git_author_email = "kaviyack2005@gmail.com"
+        else:
+            git_author_email = raw_author_email
+
         return cls(
             leetcode_username=leetcode_username,
             github_token=github_token,
@@ -94,13 +106,8 @@ class Config:
             leetcode_csrf=leetcode_csrf,
             fetch_limit=int(os.environ.get("FETCH_LIMIT", "20")),
             sync_mode=sync_mode,
-            git_author_name=os.environ.get(
-                "GIT_AUTHOR_NAME", "Kaviyavarshini"
-            ).strip(),
-            git_author_email=os.environ.get(
-                "GIT_AUTHOR_EMAIL",
-                "kaviyack2005@gmail.com",
-            ).strip(),
+            git_author_name=git_author_name,
+            git_author_email=git_author_email,
             log_level=os.environ.get("LOG_LEVEL", "INFO").strip().upper(),
         )
 
