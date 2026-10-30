@@ -39,8 +39,8 @@ _GRAPHQL_URL = f"{_BASE_URL}/graphql"
 _REQUEST_DELAY = 0.5
 
 _SUBMISSION_LIST_QUERY = """
-query submissionList($offset: Int!, $limit: Int!, $lastKey: String, $username: String) {
-  submissionList(offset: $offset, limit: $limit, lastKey: $lastKey, username: $username) {
+query submissionList($offset: Int!, $limit: Int!, $lastKey: String) {
+  submissionList(offset: $offset, limit: $limit, lastKey: $lastKey) {
     lastKey
     hasNext
     submissions {
@@ -286,7 +286,6 @@ class LeetCodeClient:
                 "offset": 0,
                 "limit": self.fetch_limit,
                 "lastKey": None,
-                "username": self.username,
             },
         )
         submissions_data = data.get("submissionList", {})
