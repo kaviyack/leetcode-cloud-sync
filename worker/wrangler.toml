@@ -17,3 +17,6 @@ consumers = [
 binding = "SYNC_STATE"
 id = "d2fc1d81ecbb48afba1f145a56feaecf"
 
+[vars]
+GITHUB_REPO = "kaviyack/leetcode-cloud-sync"
+

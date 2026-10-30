@@ -283,14 +283,13 @@ To achieve automatic cloud synchronization with scheduled polling approximately 
    npm install -g wrangler
    wrangler login
    ```
-2. Configure `worker/wrangler.toml` with your KV Namespace ID (`d2fc1d81ecbb48afba1f145a56feaecf`).
-3. Set required worker secrets and variables:
+2. Configure `worker/wrangler.toml` with your KV Namespace ID (`d2fc1d81ecbb48afba1f145a56feaecf`) and non-secret `GITHUB_REPO` variable (`owner/repo`) under `[vars]`.
+3. Set required worker secrets (sensitive credentials):
    ```bash
    wrangler secret put LEETCODE_USERNAME
    wrangler secret put LEETCODE_SESSION
    wrangler secret put LEETCODE_CSRF_TOKEN
    wrangler secret put GITHUB_TOKEN
-   wrangler secret put GITHUB_REPO     # e.g., "your-username/leetcode-cloud-sync"
    ```
 4. Create both the main queue and dead-letter queue (DLQ):
    ```bash
