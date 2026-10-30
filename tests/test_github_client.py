@@ -118,3 +118,50 @@ class TestGitHubClientUpdateFile:
                 author_name="Bot",
                 author_email="bot@example.com",
             )
+
+
+class TestGitHubClientAuthorMetadata:
+    @resp_lib.activate
+    def test_create_file_sends_intended_author_and_committer(self):
+        resp_lib.add(
+            resp_lib.PUT,
+            "https://api.github.com/repos/owner/repo/contents/solutions/easy/two-sum.py",
+            json={"content": {}, "commit": {}},
+            status=201,
+        )
+        client = GitHubClient(token="tok", repo="owner/repo", branch="main")
+        client.create_file(
+            path="solutions/easy/two-sum.py",
+            content="print('hello')",
+            commit_message="sync: add easy #1 two sum",
+            author_name="Kaviyavarshini",
+            author_email="kaviyack2005@gmail.com",
+        )
+        req_body = json.loads(resp_lib.calls[0].request.body)
+        assert req_body["author"]["name"] == "Kaviyavarshini"
+        assert req_body["author"]["email"] == "kaviyack2005@gmail.com"
+        assert req_body["committer"]["name"] == "Kaviyavarshini"
+        assert req_body["committer"]["email"] == "kaviyack2005@gmail.com"
+
+    @resp_lib.activate
+    def test_update_file_sends_intended_author_and_committer(self):
+        resp_lib.add(
+            resp_lib.PUT,
+            "https://api.github.com/repos/owner/repo/contents/state.json",
+            json={"content": {}, "commit": {}},
+            status=200,
+        )
+        client = GitHubClient(token="tok", repo="owner/repo", branch="main")
+        client.update_file(
+            path="state.json",
+            content="{}",
+            sha="sha123",
+            commit_message="sync: update state",
+            author_name="Kaviyavarshini",
+            author_email="kaviyack2005@gmail.com",
+        )
+        req_body = json.loads(resp_lib.calls[0].request.body)
+        assert req_body["author"]["name"] == "Kaviyavarshini"
+        assert req_body["author"]["email"] == "kaviyack2005@gmail.com"
+        assert req_body["committer"]["name"] == "Kaviyavarshini"
+        assert req_body["committer"]["email"] == "kaviyack2005@gmail.com"

@@ -31,8 +31,8 @@ class Config:
     # Sync mode: 'accepted' (only accepted) or 'all' (all submission attempts)
     sync_mode: str = "accepted"
     # Committer identity for automated commits.
-    git_author_name: str = "LeetCode Cloud Sync"
-    git_author_email: str = "leetcode-cloud-sync@users.noreply.github.com"
+    git_author_name: str = "Kaviyavarshini"
+    git_author_email: str = "kaviyack2005@gmail.com"
     log_level: str = "INFO"
     # Additional field for any optional env overrides.
     extra: dict = field(default_factory=dict)
@@ -95,11 +95,11 @@ class Config:
             fetch_limit=int(os.environ.get("FETCH_LIMIT", "20")),
             sync_mode=sync_mode,
             git_author_name=os.environ.get(
-                "GIT_AUTHOR_NAME", "LeetCode Cloud Sync"
+                "GIT_AUTHOR_NAME", "Kaviyavarshini"
             ).strip(),
             git_author_email=os.environ.get(
                 "GIT_AUTHOR_EMAIL",
-                "leetcode-cloud-sync@users.noreply.github.com",
+                "kaviyack2005@gmail.com",
             ).strip(),
             log_level=os.environ.get("LOG_LEVEL", "INFO").strip().upper(),
         )
