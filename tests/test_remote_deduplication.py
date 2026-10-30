@@ -161,3 +161,28 @@ class TestRemoteDeduplicationStoreSemantics:
         assert store.count() == 2
         assert store.is_seen("ID_1")
         assert store.is_seen("ID_2")
+
+    def test_unchanged_state_produces_no_commit(self):
+        raw = _state_json(["A"])
+        gh = _make_gh(read_result=(raw, "sha_old"))
+        store = RemoteDeduplicationStore(gh)
+        store.save()  # no changes made
+        gh.update_file.assert_not_called()
+        gh.create_file.assert_not_called()
+
+    def test_changed_state_updates_remote(self):
+        raw = _state_json(["A"])
+        gh = _make_gh(read_result=(raw, "sha_old"), read_after_write=(_state_json(["A", "B"]), "sha_new"))
+        store = RemoteDeduplicationStore(gh)
+        store.mark_seen("B")
+        store.save()
+        gh.update_file.assert_called_once()
+
+    def test_repeated_runs_no_unnecessary_commits(self):
+        raw = _state_json(["A"])
+        gh = _make_gh(read_result=(raw, "sha_old"))
+        store = RemoteDeduplicationStore(gh)
+        store.save()  # first save (unchanged) -> no commit
+        store.save()  # second save (unchanged) -> no commit
+        gh.update_file.assert_not_called()
+        gh.create_file.assert_not_called()

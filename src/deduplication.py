@@ -107,6 +107,7 @@ class RemoteDeduplicationStore:
         self._author_email = author_email
         self._seen: set[str] = set()
         self._sha: str | None = None  # current blob SHA; None if file doesn't exist yet
+        self._original_content: str | None = None
         self._load()
 
     def _load(self) -> None:
@@ -124,10 +125,12 @@ class RemoteDeduplicationStore:
 
         if result is None:
             logger.debug("No remote state file found. Starting fresh.")
+            self._original_content = None
             return
 
         raw, sha = result
         self._sha = sha
+        self._original_content = raw
         self._seen = _parse_state(raw)
         if not self._seen and raw.strip():
             logger.warning("Remote state file was malformed; starting fresh.")
@@ -145,6 +148,11 @@ class RemoteDeduplicationStore:
         from .github_client import GitHubAPIError
 
         content = _serialise_state(self._seen)
+
+        if self._sha is not None and content == self._original_content:
+            logger.debug("Remote state unchanged; skipping commit.")
+            return
+
         commit_msg = "sync: update deduplication state"
         try:
             if self._sha is None:
@@ -164,10 +172,12 @@ class RemoteDeduplicationStore:
                     author_name=self._author_name,
                     author_email=self._author_email,
                 )
-            # Refresh SHA after the write so a second save() in the same run is safe.
+            # Refresh SHA and original content after the write
             result = self._gh.read_file(self._state_path)
             if result is not None:
-                _, self._sha = result
+                raw_new, sha_new = result
+                self._sha = sha_new
+                self._original_content = raw_new
             logger.debug("Saved %d submission IDs to remote state.", len(self._seen))
         except GitHubAPIError as exc:
             logger.error("Failed to save remote state file: %s", exc)

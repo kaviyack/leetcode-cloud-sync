@@ -122,26 +122,51 @@ def run_diagnose() -> int:
         )
         records = None
         try:
-            records = lc.fetch_recent_accepted_submissions()
+            auth_status = lc.verify_auth()
+            api_user = auth_status.get("username", "unknown")
             _check(
-                "LeetCode API reachable",
+                "LeetCode authentication (userStatus)",
                 True,
-                f"fetched {len(records)} accepted submission(s) (limit: 3)",
+                f"Session is valid and signed in as '{api_user}'.",
             )
         except AuthError as exc:
             _check(
                 "LeetCode authentication",
                 False,
-                f"Auth failed — refresh your LEETCODE_SESSION cookie. Detail: {exc}",
+                f"Session is expired or invalid. Detail: {exc}",
             )
             all_ok = False
-        except LeetCodeAPIError as exc:
-            _check(
-                "LeetCode API",
-                False,
-                f"API error (transient?): {exc}",
-            )
-            all_ok = False
+            records = []
+
+        if all_ok:
+            try:
+                records = lc.fetch_recent_accepted_submissions()
+                if not records:
+                    _check(
+                        "LeetCode submission list",
+                        True,
+                        "Authenticated successfully, but returned 0 accepted submissions (genuinely zero submissions).",
+                    )
+                else:
+                    _check(
+                        "LeetCode API reachable",
+                        True,
+                        f"fetched {len(records)} accepted submission(s) (limit: 3)",
+                    )
+            except AuthError as exc:
+                _check(
+                    "LeetCode authentication",
+                    False,
+                    f"Auth failed during fetch — refresh your LEETCODE_SESSION cookie. Detail: {exc}",
+                )
+                all_ok = False
+            except LeetCodeAPIError as exc:
+                _check(
+                    "LeetCode API",
+                    False,
+                    f"API error (transient?): {exc}",
+                )
+                all_ok = False
 
         # ---------------------------------------------------------------- #
         # 3. Source code retrievability

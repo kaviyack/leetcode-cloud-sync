@@ -114,6 +114,36 @@ class TestAuth:
         with pytest.raises(AuthError, match="login"):
             client.fetch_recent_accepted_submissions()
 
+    @resp_lib.activate
+    def test_verify_auth_success(self):
+        resp_lib.add(
+            resp_lib.POST,
+            _GQL_URL,
+            json={"data": {"userStatus": {"isSignedIn": True, "username": "testuser", "userId": 123}}},
+            status=200,
+        )
+        resp_lib.add(
+            resp_lib.POST,
+            _GQL_URL,
+            json=_make_submission_list_response([]),
+            status=200,
+        )
+        client = _make_client()
+        status = client.verify_auth()
+        assert status["isSignedIn"] is True
+
+    @resp_lib.activate
+    def test_verify_auth_not_signed_in(self):
+        resp_lib.add(
+            resp_lib.POST,
+            _GQL_URL,
+            json={"data": {"userStatus": {"isSignedIn": False, "username": "", "userId": None}}},
+            status=200,
+        )
+        client = _make_client()
+        with pytest.raises(AuthError, match="expired or invalid"):
+            client.verify_auth()
+
 
 # ---------------------------------------------------------------------------
 # 10. API failures and malformed responses

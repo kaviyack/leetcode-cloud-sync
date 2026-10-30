@@ -114,6 +114,16 @@ query questionData($titleSlug: String!) {
 }
 """
 
+_USER_STATUS_QUERY = """
+query userStatus {
+  userStatus {
+    isSignedIn
+    username
+    userId
+  }
+}
+"""
+
 
 class AuthError(Exception):
     """Raised when LeetCode credentials are absent or rejected."""
@@ -221,6 +231,20 @@ class LeetCodeClient:
             raise LeetCodeAPIError(f"GraphQL errors: {data['errors']}")
 
         return data.get("data", {})
+
+    def verify_auth(self) -> dict:
+        """
+        Verify that the session cookie and CSRF token provide a valid, signed-in
+        LeetCode session via userStatus query. Raises AuthError if not signed in.
+        """
+        data = self._graphql(_USER_STATUS_QUERY, {})
+        status = data.get("userStatus")
+        if not status or not status.get("isSignedIn"):
+            raise AuthError(
+                "LeetCode session is expired or invalid. "
+                "User is not signed in according to LeetCode API."
+            )
+        return status
 
     def fetch_recent_accepted_submissions(self) -> list[SubmissionRecord]:
         """
